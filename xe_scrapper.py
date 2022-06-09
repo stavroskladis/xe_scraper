@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup as bs
 import re
 from random import randint
 from time import sleep
+from tqdm import tqdm
 
 
 # Get unique values
@@ -36,21 +37,22 @@ def filter_blacklisted_areas(urls, blacklisted_areas):
 
 class Home:
     def __init__(self, property_url):
+        self.text = None
         self.property_url = property_url
         self.property_id = -1
         self.bedroom = -1
         self.bathroom = -1
         self.floor = -1
-        self.house_reconstruction = "NA"
-        self.building_space = "NA"
-        self.compass = "NA"
-        self.title = "NA"
+        self.house_reconstruction = None
+        self.building_space = None
+        self.compass = None
+        self.title = None
         self.price = -1
         self.door = False
         self.canopy = False
-        self.heating = "NA"
+        self.heating = None
         self.is_estate = True
-        self.description = "NA"
+        self.description = None
         self.has_oil = False
         self.rejected = True
 
@@ -92,6 +94,8 @@ class Home:
             self.floor = 1 / 2
         elif floor_data == 'Ημιυπόγειο':
             self.floor = -1 / 2
+        elif 'Ισόγειο, Ημιυπόγειο':
+            self.floor = -1 / 2
         else:
             digits = re.findall(r'\d+', floor_data)
             if type(digits) == list and len(digits) > 0:
@@ -121,7 +125,7 @@ class Home:
             self.is_estate = True
 
         if self.description:
-            if ((self.description.find('πετρέλαιο') != -1) or (self.description.find('πετρελαίου') != -1)):
+            if (self.description.find('πετρέλαιο') != -1) or (self.description.find('πετρελαίου') != -1):
                 self.has_oil = True
         if search(self.text, "Μέσο θέρμανσης:"):
             self.heating = self.text[self.text.index("Μέσο θέρμανσης:") + 2].text
@@ -160,11 +164,12 @@ def get_soup_objects(url):
 
 def parse_and_filter_homes(homes):
     selected_houses = []
-    selected = False
 
-    for h in homes:
+    for h in tqdm(homes):
         delay = randint(1, 5)
-        print(f'\nProcessing house with id: {h.property_id} (sleeping for {delay} seconds)')
+        # print(f'\nProcessing house with id: {h.property_id} (sleeping for {delay} seconds)')
+        # print(f'\nhouse url: {h.property_url}')
+
         sleep(delay)
 
         [soup_html, soup_lxml] = get_soup_objects(h.property_url)
@@ -177,24 +182,26 @@ def parse_and_filter_homes(homes):
         h.validate()
 
         if not h.rejected:
-            h.house_print_info()
+            #h.house_print_info()
             selected_houses.append(h)
-            print(f'This house matches out criteria!')
-            print(f'Adding it to our database...')
-            print(f'Informing you via email...')
-        else:
-            print(f'{h.property_id} has been rejected')
+            # print(f'This house matches out criteria!')
+            # print(f'Adding it to our database...')
+            # print(f'Informing you via email...')
+        # else:
+        #    print(f'{h.property_id} has been rejected')
 
     return selected_houses
 
 
 def main():
     # Fixed query, should be loaded dynamically, raw code should be in function main or another function
-    query_url = "https://www.xe.gr/property/results?transaction_name=rent&item_type=re_residence&maximum_price=960&minimum_size=57&geo_lat_from=38.0999672763109&geo_lng_from=24.061083822481493&geo_lat_to=37.792875685371634&geo_lng_to=23.530055641375128&sorting=update_desc"
+    query_url = "https://www.xe.gr/property/results?transaction_name=rent&item_type=re_residence&maximum_price=960" \
+                "&minimum_size=57&geo_lat_from=38.0999672763109&geo_lng_from=24.061083822481493&geo_lat_to=37" \
+                ".792875685371634&geo_lng_to=23.530055641375128&sorting=update_desc "
 
     crafted_urls = []
     start_page = 0  # Should be 1 at minimum
-    max_page_num = 1  # upper limit for the web page number to scrapp
+    max_page_num = 1  # upper limit for the web page number to scrap
     links = []
 
     for i in range(start_page, max_page_num):
@@ -235,7 +242,8 @@ def main():
 
     selected_houses = parse_and_filter_homes(homes)
 
-    print(selected_houses)
+    for h in selected_houses:
+        print(h.property_url)
 
 
 if __name__ == "__main__":
