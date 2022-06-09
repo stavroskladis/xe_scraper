@@ -1,9 +1,5 @@
-import re
-import smtplib
-from datetime import datetime
 import requests
 from bs4 import BeautifulSoup as bs
-import os
 import re
 from random import randint
 from time import sleep
@@ -90,7 +86,7 @@ class Home:
         floor_data = self.text[self.text.index("Όροφος:") + 2].text
         if type(floor_data) == list and len(floor_data) > 1:
             floor_data = floor_data[0]
-        if ((floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο')):
+        if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
             self.floor = 0
         elif floor_data == 'Ημιώροφος':
             self.floor = 1 / 2
@@ -162,11 +158,11 @@ def get_soup_objects(url):
     return [soup_html, soup_lxml]
 
 
-def parse_and_filter_homes():
+def parse_and_filter_homes(homes):
     selected_houses = []
     selected = False
 
-    for h in Homes:
+    for h in homes:
         delay = randint(1, 5)
         print(f'\nProcessing house with id: {h.property_id} (sleeping for {delay} seconds)')
         sleep(delay)
@@ -192,50 +188,55 @@ def parse_and_filter_homes():
     return selected_houses
 
 
-# Fixed query, should be loaded dynamically, raw code should be in function main or another function
-query_url = "https://www.xe.gr/property/results?transaction_name=rent&item_type=re_residence&maximum_price=960&minimum_size=57&geo_lat_from=38.0999672763109&geo_lng_from=24.061083822481493&geo_lat_to=37.792875685371634&geo_lng_to=23.530055641375128&sorting=update_desc"
-crafted_urls = []
-uniq_urls = []
-start_page = 0  # Should be 1 at minimum
-max_page_num = 1  # upper limit for the web page number to scrapp
-links = []
+def main():
+    # Fixed query, should be loaded dynamically, raw code should be in function main or another function
+    query_url = "https://www.xe.gr/property/results?transaction_name=rent&item_type=re_residence&maximum_price=960&minimum_size=57&geo_lat_from=38.0999672763109&geo_lng_from=24.061083822481493&geo_lat_to=37.792875685371634&geo_lng_to=23.530055641375128&sorting=update_desc"
 
-for i in range(start_page, max_page_num):
-    crafted_urls.append(query_url + "&page=" + str(i + 1))
-    soup = bs(requests.get(crafted_urls[i]).content, 'lxml')
+    crafted_urls = []
+    start_page = 0  # Should be 1 at minimum
+    max_page_num = 1  # upper limit for the web page number to scrapp
+    links = []
 
-    for a_tag in soup.select('a[href*="enoikiaseis-katoikion"]'):
-        links.append(a_tag['href'])
+    for i in range(start_page, max_page_num):
+        crafted_urls.append(query_url + "&page=" + str(i + 1))
+        soup = bs(requests.get(crafted_urls[i]).content, 'lxml')
 
-    links = links[:-15]
+        for a_tag in soup.select('a[href*="enoikiaseis-katoikion"]'):
+            links.append(a_tag['href'])
 
-uniq_urls = unique(links)
+        links = links[:-15]
 
-# Should be loaded dynamically
-blacklist_areas = [
-    "nosokomeio-paidwn",
-    "athhna-plateia-amerikhs",
-    "vyrwnas",
-    "zwgrafoy-kentro",
-    "nosokomeio-paidwn",
-    "athhna-koyntoyriwtika",
-    "athhna-kynosargoys",
-    "galatsi",
-    "porto-rafth",
-    "pagkrati",
-    "ippokratoys",
-    "ilion",
-    "liosia",
-    "keratsini"
+    uniq_urls = unique(links)
+
+    # Should be loaded dynamically
+    blacklist_areas = [
+        "nosokomeio-paidwn",
+        "athhna-plateia-amerikhs",
+        "vyrwnas",
+        "zwgrafoy-kentro",
+        "nosokomeio-paidwn",
+        "athhna-koyntoyriwtika",
+        "athhna-kynosargoys",
+        "galatsi",
+        "porto-rafth",
+        "pagkrati",
+        "ippokratoys",
+        "ilion",
+        "liosia",
+        "keratsini",
+        "artemis"
     ]
 
-blacklist_areas = unique(blacklist_areas)
+    blacklist_areas = unique(blacklist_areas)
 
-cleaned_urls = filter_blacklisted_areas(uniq_urls, blacklist_areas)
+    cleaned_urls = filter_blacklisted_areas(uniq_urls, blacklist_areas)
 
-Homes = make_homes(cleaned_urls)
+    homes = make_homes(cleaned_urls)
 
-selected_houses = parse_and_filter_homes()
+    selected_houses = parse_and_filter_homes(homes)
+
+    print(selected_houses)
 
 
-
+if __name__ == "__main__":
+    main()
