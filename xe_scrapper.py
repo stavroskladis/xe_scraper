@@ -165,12 +165,12 @@ def get_soup_objects(url):
 def parse_and_filter_homes(homes):
     selected_houses = []
 
-    for h in tqdm(homes):
+    hbar = tqdm([h for h in homes])
+    for h in hbar:
         delay = randint(1, 5)
-        # print(f'\nProcessing house with id: {h.property_id} (sleeping for {delay} seconds)')
-        # print(f'\nhouse url: {h.property_url}')
-
+        # print(f'Processing house with id: {h.property_id} (sleeping for {delay} seconds)\n')
         sleep(delay)
+        hbar.set_description("Processing home with id: %s" % h.property_id)
 
         [soup_html, soup_lxml] = get_soup_objects(h.property_url)
 
@@ -182,7 +182,7 @@ def parse_and_filter_homes(homes):
         h.validate()
 
         if not h.rejected:
-            #h.house_print_info()
+            # h.house_print_info()
             selected_houses.append(h)
             # print(f'This house matches out criteria!')
             # print(f'Adding it to our database...')
