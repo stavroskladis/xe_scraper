@@ -4,6 +4,56 @@ import re
 from random import randint
 from time import sleep
 from tqdm import tqdm
+import mysql.connector
+
+
+def insert_variables_into_table(property_id, property_url, bedroom, bathroom, floor, house_reconstruction,
+                                building_space, compass, title, price, door, canopy, heating, description, has_oil):
+    connection = None
+    try:
+        # In MySQL 8.0, caching_sha2_password is the default authentication plugin rather than mysql_native_password.
+        connection = mysql.connector.connect(host='localhost',
+                                             database='xedb',
+                                             user='root',
+                                             password='dxcfvgbhnjm4567ctfvghj&*(klYFlCnmPzyfvgbh',
+                                             auth_plugin='mysql_native_password')
+
+        # Check if property_id exists in our database
+        cursor = connection.cursor()
+        query = f'SELECT property_id FROM `homes` WHERE property_id = {property_id}'
+        res = cursor.execute(query)
+
+        id_found = False
+        id_fetched = cursor.fetchone()
+        if type(id_fetched) == tuple:
+            id_fetched = id_fetched[0]
+        if id_fetched == int(property_id):
+            print(f'{property_id} property_id found in db, skipping insert...')  # TODO(SK): To be stored in a status file
+            id_found = True
+
+        # if the house hasn't been already stored in our database, execute insert command
+        if not id_found:
+            mySql_insert_query = """INSERT INTO homes (property_id, property_url, bedroom, bathroom, floor, 
+                                        house_reconstruction, building_space, compass, title, price, door, canopy, heating,
+                                        description, has_oil) 
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+
+            record = (property_id, property_url, bedroom, bathroom, floor, house_reconstruction, building_space, compass,
+                      title, price, door, canopy, heating, description, has_oil)
+            cursor.execute(mySql_insert_query, record)
+            connection.commit()
+            print("Record inserted successfully into homes table")  # TODO(SK): To be stored in a status file
+
+    except mysql.connector.Error as error:
+        print("Failed to insert into MySQL table {}".format(error))  # TODO(SK): To be stored in a status file
+
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("MySQL connection is closed")
+
+    return not id_found
 
 
 # Get unique values
@@ -43,7 +93,7 @@ class Home:
         self.bedroom = -1
         self.bathroom = -1
         self.floor = -1
-        self.house_reconstruction = None
+        self.house_reconstruction = 0
         self.building_space = None
         self.compass = None
         self.title = None
@@ -86,7 +136,7 @@ class Home:
             self.bathroom = int(self.text[self.text.index("Μπάνια:") + 2].text)
 
         floor_data = self.text[self.text.index("Όροφος:") + 2].text
-        if type(floor_data) == list and len(floor_data) > 1:
+        if type(floor_data) == list and len(floor_data) >= 1:
             floor_data = floor_data[0]
         if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
             self.floor = 0
@@ -98,7 +148,7 @@ class Home:
             self.floor = -1 / 2
         else:
             digits = re.findall(r'\d+', floor_data)
-            if type(digits) == list and len(digits) > 0:
+            if type(digits) == list and len(digits) >= 1:
                 digits = digits[0]
             self.floor = int(str(digits))
 
@@ -109,15 +159,15 @@ class Home:
             self.building_space = self.text[self.text.index("Κατάσταση:") + 2].text
 
         if search(self.text, "Προσανατολισμός:"):
-            self.compass = self.text[self.text.index("Προσανατολισμός:") + 2].text
+            self.compass = self.text[self.text.index("Προσανατολισμός:") + 2].text.strip()
 
-        self.title = soup_lxml.title.string
+        self.title = soup_lxml.title.string.strip()
         self.price = int(re.findall(r'\d+', soup_lxml.find(class_='price').h2.text)[0])
         self.door = search(self.text, "Πόρτα ασφαλείας")
         self.canopy = search(self.text, "Τέντες")
 
         if search(self.text, "Θέρμανση:"):
-            self.heating = self.text[self.text.index("Θέρμανση:") + 2].text
+            self.heating = self.text[self.text.index("Θέρμανση:") + 2].text.strip()
 
         if self.title.find('Ιδιώτης') != -1:
             self.is_estate = False
@@ -168,9 +218,11 @@ def parse_and_filter_homes(homes):
     hbar = tqdm([h for h in homes])
     for h in hbar:
         delay = randint(1, 5)
-        # print(f'Processing house with id: {h.property_id} (sleeping for {delay} seconds)\n')
         sleep(delay)
         hbar.set_description("Processing home with id: %s" % h.property_id)
+
+        # To be stored in a log file
+        # print(f'Processing house with id: {h.property_id} (sleeping for {delay} seconds)\n')
 
         [soup_html, soup_lxml] = get_soup_objects(h.property_url)
 
@@ -182,13 +234,13 @@ def parse_and_filter_homes(homes):
         h.validate()
 
         if not h.rejected:
-            # h.house_print_info()
+            # h.house_print_info()  # TODO(SK): To be stored in a status file
             selected_houses.append(h)
-            # print(f'This house matches out criteria!')
-            # print(f'Adding it to our database...')
-            # print(f'Informing you via email...')
+            # print(f'This house matches out criteria!') # TODO(SK): To be stored in a status file
+            # print(f'Adding it to our database...')  # TODO(SK): To be stored in a status file
+            # print(f'Informing you via email...')  # TODO(SK): To be stored in a status file
         # else:
-        #    print(f'{h.property_id} has been rejected')
+        #    print(f'{h.property_id} has been rejected')  # TODO(SK): To be stored in a status file
 
     return selected_houses
 
@@ -242,8 +294,21 @@ def main():
 
     selected_houses = parse_and_filter_homes(homes)
 
+    print(f'\n{len(homes) - len(selected_houses)} houses have been rejected based on your criteria and '
+          f'{len(selected_houses)} houses have been selected:')
+
+    new_homes = []
     for h in selected_houses:
-        print(h.property_url)
+        inserted = insert_variables_into_table(h.property_id, h.property_url, h.bedroom, h.bathroom, h.floor,
+                                               h.house_reconstruction, h.building_space, h.compass, h.title, h.price,
+                                               h.door, h.canopy, h.heating, h.description, h.has_oil)
+        if inserted:
+            new_homes.append(h)
+
+    new_homes_len = len(new_homes)
+    print(f'{new_homes_len} new houses found')
+    for nh in new_homes:
+        print(nh.property_url)
 
 
 if __name__ == "__main__":
