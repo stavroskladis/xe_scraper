@@ -89,15 +89,15 @@ class Home:
     def __init__(self, property_url):
         self.text = None
         self.property_url = property_url
-        self.property_id = -1
-        self.bedroom = -1
-        self.bathroom = -1
-        self.floor = -1
-        self.house_reconstruction = 0
+        self.property_id = None
+        self.bedroom = None
+        self.bathroom = None
+        self.floor = None
+        self.house_reconstruction = None
         self.building_space = None
         self.compass = None
         self.title = None
-        self.price = -1
+        self.price = None
         self.door = False
         self.canopy = False
         self.heating = None
@@ -135,22 +135,23 @@ class Home:
         if search(self.text, "Μπάνια:"):
             self.bathroom = int(self.text[self.text.index("Μπάνια:") + 2].text)
 
-        floor_data = self.text[self.text.index("Όροφος:") + 2].text
-        if type(floor_data) == list and len(floor_data) >= 1:
-            floor_data = floor_data[0]
-        if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
-            self.floor = 0
-        elif floor_data == 'Ημιώροφος':
-            self.floor = 1 / 2
-        elif floor_data == 'Ημιυπόγειο':
-            self.floor = -1 / 2
-        elif 'Ισόγειο, Ημιυπόγειο':
-            self.floor = -1 / 2
-        else:
-            digits = re.findall(r'\d+', floor_data)
-            if type(digits) == list and len(digits) >= 1:
-                digits = digits[0]
-            self.floor = int(str(digits))
+        if search(self.text, "Όροφος:"):
+            floor_data = self.text[self.text.index("Όροφος:") + 2].text
+            if type(floor_data) == list and len(floor_data) >= 1:
+                floor_data = floor_data[0]
+            if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
+                self.floor = 0
+            elif floor_data == 'Ημιώροφος':
+                self.floor = 1 / 2
+            elif floor_data == 'Ημιυπόγειο':
+                self.floor = -1 / 2
+            elif 'Ισόγειο, Ημιυπόγειο':
+                self.floor = -1 / 2
+            else:
+                digits = re.findall(r'\d+', floor_data)
+                if type(digits) == list and len(digits) >= 1:
+                    digits = digits[0]
+                self.floor = int(str(digits))
 
         if search(self.text, "Έτος ανακαίνισης:"):
             self.house_reconstruction = int(self.text[self.text.index("Έτος ανακαίνισης:") + 2].text)
@@ -253,10 +254,17 @@ def main():
 
     crafted_urls = []
     start_page = 0  # Should be 1 at minimum
-    max_page_num = 1  # upper limit for the web page number to scrap
+    max_page_num = 50  # upper limit for the web page number to scrap
     links = []
 
-    for i in range(start_page, max_page_num):
+    pgbar = tqdm(range(start_page, max_page_num))
+    for i in pgbar:
+        delay = randint(1, 5)
+        # TODO(SK): Add this to a logfile
+        # print(f'\nGetting page: {i + 1}, sleeping for {delay} seconds)')
+        pgbar.set_description("Getting page: %s" % str(i + 1))
+        sleep(delay)
+
         crafted_urls.append(query_url + "&page=" + str(i + 1))
         soup = bs(requests.get(crafted_urls[i]).content, 'lxml')
 
@@ -306,7 +314,7 @@ def main():
             new_homes.append(h)
 
     new_homes_len = len(new_homes)
-    print(f'{new_homes_len} new houses found')
+    print(f'\n\n{new_homes_len} new houses found\n')
     for nh in new_homes:
         print(nh.property_url)
 
