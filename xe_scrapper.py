@@ -5,6 +5,9 @@ from random import randint
 from time import sleep
 from tqdm import tqdm
 import mysql.connector
+import logging
+
+logging.basicConfig(filename='xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
 
 
 def insert_variables_into_table(property_id, property_url, bedroom, bathroom, floor, house_reconstruction,
@@ -28,7 +31,7 @@ def insert_variables_into_table(property_id, property_url, bedroom, bathroom, fl
         if type(id_fetched) == tuple:
             id_fetched = id_fetched[0]
         if id_fetched == int(property_id):
-            print(f'{property_id} property_id found in db, skipping insert...')  # TODO(SK): To be stored in a status file
+            logging.debug(f'{property_id} property_id found in db, skipping insert...')
             id_found = True
 
         # if the house hasn't been already stored in our database, execute insert command
@@ -42,16 +45,16 @@ def insert_variables_into_table(property_id, property_url, bedroom, bathroom, fl
                       title, price, door, canopy, heating, description, has_oil)
             cursor.execute(mySql_insert_query, record)
             connection.commit()
-            print("Record inserted successfully into homes table")  # TODO(SK): To be stored in a status file
+            logging.debug("Record inserted successfully into homes table")
 
     except mysql.connector.Error as error:
-        print("Failed to insert into MySQL table {}".format(error))  # TODO(SK): To be stored in a status file
+        logging.error("Failed to insert into MySQL table {}".format(error))
 
     finally:
         if connection and connection.is_connected():
             cursor.close()
             connection.close()
-            print("MySQL connection is closed")
+            logging.debug("MySQL connection is closed")
 
     return not id_found
 
@@ -110,78 +113,90 @@ class Home:
         self.property_id = self.property_url.split('/')[6]
 
     def house_print_info(self):
-        print(f'Ηλεκτρονική Διεύθυνση: {self.property_url}')
-        print(f'Αναγνωριστικό: {self.property_id}')
-        print(f'Υπνοδωμάτια: {self.bedroom}')
-        print(f'Μπάνια: {self.bathroom}')
-        print(f'Όροφος: {self.floor}')
-        print(f'Έτος ανακαίνισης: {self.house_reconstruction}')
-        print(f'Κατάσταση: {self.building_space}')
-        print(f'Προσανατολισμός: {self.compass}')
-        print(f'Τίτλος: {self.title}')
-        print(f'Τιμή: {self.price}')
-        print(f'Πόρτα ασφαλείας: {self.door}')
-        print(f'Τέντες: {self.canopy}')
-        print(f'Θέρμανση: {self.heating}')
-        print(f'Μεσίτης: {self.is_estate}')
-        print(f'Περιγραφή: {self.description}')
-        print(f'Πετρέλαιο: {self.has_oil}')
+        logging.info(f'Ηλεκτρονική Διεύθυνση: {self.property_url}')
+        logging.info(f'Αναγνωριστικό: {self.property_id}')
+        logging.info(f'Υπνοδωμάτια: {self.bedroom}')
+        logging.info(f'Μπάνια: {self.bathroom}')
+        logging.info(f'Όροφος: {self.floor}')
+        logging.info(f'Έτος ανακαίνισης: {self.house_reconstruction}')
+        logging.info(f'Κατάσταση: {self.building_space}')
+        logging.info(f'Προσανατολισμός: {self.compass}')
+        logging.info(f'Τίτλος: {self.title}')
+        logging.info(f'Τιμή: {self.price}')
+        logging.info(f'Πόρτα ασφαλείας: {self.door}')
+        logging.info(f'Τέντες: {self.canopy}')
+        logging.info(f'Θέρμανση: {self.heating}')
+        logging.info(f'Μεσίτης: {self.is_estate}')
+        logging.info(f'Περιγραφή: {self.description}')
+        logging.info(f'Πετρέλαιο: {self.has_oil}')
 
     def set_house_info(self, soup_html, soup_lxml):
+        try:
 
-        if search(self.text, "Υπνοδωμάτια:"):
-            self.bedroom = int(self.text[self.text.index("Υπνοδωμάτια:") + 2].text)
+            if search(self.text, "Υπνοδωμάτια:"):
+                self.bedroom = int(self.text[self.text.index("Υπνοδωμάτια:") + 2].text)
 
-        if search(self.text, "Μπάνια:"):
-            self.bathroom = int(self.text[self.text.index("Μπάνια:") + 2].text)
+            if search(self.text, "Μπάνια:"):
+                self.bathroom = int(self.text[self.text.index("Μπάνια:") + 2].text)
 
-        if search(self.text, "Όροφος:"):
-            floor_data = self.text[self.text.index("Όροφος:") + 2].text
-            if type(floor_data) == list and len(floor_data) >= 1:
-                floor_data = floor_data[0]
-            if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
-                self.floor = 0
-            elif floor_data == 'Ημιώροφος':
-                self.floor = 1 / 2
-            elif floor_data == 'Ημιυπόγειο':
-                self.floor = -1 / 2
-            elif 'Ισόγειο, Ημιυπόγειο':
-                self.floor = -1 / 2
-            else:
-                digits = re.findall(r'\d+', floor_data)
-                if type(digits) == list and len(digits) >= 1:
-                    digits = digits[0]
-                self.floor = int(str(digits))
+            if search(self.text, "Όροφος:"):
+                floor_data = self.text[self.text.index("Όροφος:") + 2].text
+                if type(floor_data) == list and len(floor_data) >= 1:
+                    floor_data = floor_data[0]
+                if (floor_data == 'Ισόγειο') or (floor_data == 'Υπερυψωμένο, Ισόγειο') or (floor_data == 'Υπερυψωμένο'):
+                    self.floor = 0
+                elif floor_data == 'Ημιώροφος':
+                    self.floor = 1 / 2
+                elif floor_data == 'Ημιυπόγειο':
+                    self.floor = -1 / 2
+                elif 'Ισόγειο, Ημιυπόγειο':
+                    self.floor = -1 / 2
+                else:
+                    digits = re.findall(r'\d+', floor_data)
+                    if type(digits) == list and len(digits) >= 1:
+                        digits = digits[0]
+                    self.floor = int(str(digits))
 
-        if search(self.text, "Έτος ανακαίνισης:"):
-            self.house_reconstruction = int(self.text[self.text.index("Έτος ανακαίνισης:") + 2].text)
+            if search(self.text, "Έτος ανακαίνισης:"):
+                self.house_reconstruction = int(self.text[self.text.index("Έτος ανακαίνισης:") + 2].text)
 
-        if search(self.text, "Κατάσταση:"):
-            self.building_space = self.text[self.text.index("Κατάσταση:") + 2].text
+            if search(self.text, "Κατάσταση:"):
+                self.building_space = self.text[self.text.index("Κατάσταση:") + 2].text
 
-        if search(self.text, "Προσανατολισμός:"):
-            self.compass = self.text[self.text.index("Προσανατολισμός:") + 2].text.strip()
+            if search(self.text, "Προσανατολισμός:"):
+                self.compass = self.text[self.text.index("Προσανατολισμός:") + 2].text.strip()
 
-        self.title = soup_lxml.title.string.strip()
-        self.price = int(re.findall(r'\d+', soup_lxml.find(class_='price').h2.text)[0])
-        self.door = search(self.text, "Πόρτα ασφαλείας")
-        self.canopy = search(self.text, "Τέντες")
+            self.title = soup_lxml.title.string.strip()
+            self.price = int(re.findall(r'\d+', soup_lxml.find(class_='price').h2.text)[0])
+            self.door = search(self.text, "Πόρτα ασφαλείας")
+            self.canopy = search(self.text, "Τέντες")
 
-        if search(self.text, "Θέρμανση:"):
-            self.heating = self.text[self.text.index("Θέρμανση:") + 2].text.strip()
+            if search(self.text, "Θέρμανση:"):
+                self.heating = self.text[self.text.index("Θέρμανση:") + 2].text.strip()
 
-        if self.title.find('Ιδιώτης') != -1:
-            self.is_estate = False
-        elif len(soup_html.find_all("h2", {"class": "title"})) == 0:
-            self.is_estate = True
+            if self.description:
+                if (self.description.find('πετρέλαιο') != -1) or (self.description.find('πετρελαίου') != -1):
+                    self.has_oil = True
+            if search(self.text, "Μέσο θέρμανσης:"):
+                self.heating = self.text[self.text.index("Μέσο θέρμανσης:") + 2].text
+                if self.heating == "Πετρέλαιο" or self.heating == "πετρελαίου":
+                    self.has_oil = True
 
-        if self.description:
-            if (self.description.find('πετρέλαιο') != -1) or (self.description.find('πετρελαίου') != -1):
-                self.has_oil = True
-        if search(self.text, "Μέσο θέρμανσης:"):
-            self.heating = self.text[self.text.index("Μέσο θέρμανσης:") + 2].text
-            if self.heating == "Πετρέλαιο" or self.heating == "πετρελαίου":
-                self.has_oil = True
+            if self.title.find('Ιδιώτης') != -1:
+                self.is_estate = False
+            elif len(soup_html.find_all("h2", {"class": "title"})) == 0:
+                self.is_estate = True
+
+        except AttributeError as err:
+            logging.error(f'Exception while processing house with url: {self.property_url} and id: {self.property_id}')
+            logging.error(f'There is no such attribute {err}, {type(err)}')
+            self.rejected = True
+            pass
+        except BaseException as err:
+            logging.error(f'Exception while processing house with url: {self.property_url} and id: {self.property_id}')
+            logging.error(f'Unexpected {err}, {type(err)}')
+            self.rejected = True
+            pass
 
     def set_text(self, soup_html):
         parent = soup_html.find("body").find("ul")  # finding parent <ul> tag
@@ -222,8 +237,8 @@ def parse_and_filter_homes(homes):
         sleep(delay)
         hbar.set_description("Processing home with id: %s" % h.property_id)
 
-        # To be stored in a log file
-        # print(f'Processing house with id: {h.property_id} (sleeping for {delay} seconds)\n')
+        logging.info(f'Processing house with id: {h.property_id},\n url: {h.property_id}\n'
+                     f'(sleeping for {delay} seconds)\n')
 
         [soup_html, soup_lxml] = get_soup_objects(h.property_url)
 
@@ -235,13 +250,11 @@ def parse_and_filter_homes(homes):
         h.validate()
 
         if not h.rejected:
-            # h.house_print_info()  # TODO(SK): To be stored in a status file
+            h.house_print_info()
             selected_houses.append(h)
-            # print(f'This house matches out criteria!') # TODO(SK): To be stored in a status file
-            # print(f'Adding it to our database...')  # TODO(SK): To be stored in a status file
-            # print(f'Informing you via email...')  # TODO(SK): To be stored in a status file
-        # else:
-        #    print(f'{h.property_id} has been rejected')  # TODO(SK): To be stored in a status file
+            logging.debug(f'This house matches our criteria, trying to add it to our database...')
+        else:
+            logging.info(f'{h.property_id} has been rejected')
 
     return selected_houses
 
@@ -260,8 +273,7 @@ def main():
     pgbar = tqdm(range(start_page, max_page_num))
     for i in pgbar:
         delay = randint(1, 5)
-        # TODO(SK): Add this to a logfile
-        # print(f'\nGetting page: {i + 1}, sleeping for {delay} seconds)')
+        logging.info(f'\nGetting page: {i + 1}, sleeping for {delay} seconds)')
         pgbar.set_description("Getting page: %s" % str(i + 1))
         sleep(delay)
 
@@ -302,8 +314,8 @@ def main():
 
     selected_houses = parse_and_filter_homes(homes)
 
-    print(f'\n{len(homes) - len(selected_houses)} houses have been rejected based on your criteria and '
-          f'{len(selected_houses)} houses have been selected:')
+    logging.info(f'\n{len(homes) - len(selected_houses)} houses have been rejected based on your criteria and '
+                 f'{len(selected_houses)} houses have been selected:')
 
     new_homes = []
     for h in selected_houses:
