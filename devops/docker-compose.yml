@@ -1,0 +1,36 @@
+# To rebuild this image you must use `docker-compose build` or `docker-compose up --build`.
+version: "3.8"
+
+services:
+  # ---------------------------------------------
+  mysql_db:
+    image: mysql:8.0.12
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD="ctfVGBUIJ67gyBUINXERCTr6vt7bHNJ"
+    networks:
+      - default
+    ports:
+      - 3306:3306
+## Setup the custom configuration
+#ADD mysqld.cnf /etc/mysql/mysql.conf.d/mysqld.cnf
+  # ---------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      - mysql_db
+    ports:
+      - 8080:80
+    networks:
+      - default
+# --------------------------------------
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.66.62.0/24
+        gateway: 172.66.62.1
