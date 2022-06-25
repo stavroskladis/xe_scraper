@@ -4,7 +4,7 @@ from random import randint
 from time import sleep
 from tqdm import tqdm
 from time import sleep
-from modules.db import insert_variables_into_table
+from modules.db.querries import insert_variables_into_table
 from modules.home.home_entity import Home
 from modules.utils.data_utils import unique, filter_blacklisted_areas
 from modules.utils.parse_utils import parse_and_filter_homes
