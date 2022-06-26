@@ -8,3 +8,4 @@ def make_homes(urls):
         Homes[j].set_property_id()
 
     return Homes
+    

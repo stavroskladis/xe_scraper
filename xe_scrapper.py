@@ -11,7 +11,9 @@ from modules.utils.parse_utils import parse_and_filter_homes
 from modules.utils.home_utils import make_homes
 import logging
 
-logging.basicConfig(filename='xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
+logging.basicConfig(filename='logs/xe_scrapper.log', level=logging.INFO) # encoding='utf-8'
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("selenium").setLevel(logging.WARNING)
 
 
 def main():
@@ -22,7 +24,7 @@ def main():
 
     crafted_urls = []
     start_page = 0  # Should be 1 at minimum
-    max_page_num = 20  # upper limit for the web page number to scrap
+    max_page_num = 1  # upper limit for the web page number to scrap
     links = []
 
     pgbar = tqdm(range(start_page, max_page_num))
@@ -92,4 +94,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    try:
+        main()
+    except BaseException as err:
+        logging.error(f'main(): Unexpected {err}, {type(err)}')

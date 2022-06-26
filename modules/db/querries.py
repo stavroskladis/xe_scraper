@@ -1,13 +1,14 @@
-
 import mysql.connector
 import logging
 
-logging.basicConfig(filename='xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
-
+logging.basicConfig(filename='logs/xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
+logging.getLogger('charset_normalizer').disabled = True
 
 def insert_variables_into_table(property_id, property_url, bedroom, bathroom, floor, house_reconstruction,
                                 building_space, compass, title, price, door, canopy, heating, description, has_oil):
     connection = None
+    id_found = False
+
     try:
         # In MySQL 8.0, caching_sha2_password is the default authentication plugin rather than mysql_native_password.
         connection = mysql.connector.connect(host='localhost',
@@ -21,7 +22,6 @@ def insert_variables_into_table(property_id, property_url, bedroom, bathroom, fl
         query = f'SELECT property_id FROM `homes` WHERE property_id = {property_id}'
         res = cursor.execute(query)
 
-        id_found = False
         id_fetched = cursor.fetchone()
         if type(id_fetched) == tuple:
             id_fetched = id_fetched[0]

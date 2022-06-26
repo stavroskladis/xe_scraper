@@ -6,12 +6,18 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from random import randint
 from time import sleep
+import selenium
 
-logging.basicConfig(filename='xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
+logging.basicConfig(filename='logs/xe_scrapper.log', level=logging.DEBUG) # encoding='utf-8'
+logging.getLogger('charset_normalizer').disabled = True
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("selenium").setLevel(logging.WARNING)
 
 class Home:
 
     def __init__(self, property_url):
+        self.soup_html = None
+        self.soup_lxml = None
         self.text = None
         self.property_url = property_url
         self.property_id = None
@@ -38,6 +44,7 @@ class Home:
 
 
     def house_print_info(self):
+        logging.info(f'\n\nΠληροφορίες Σπιτιού:')
         logging.info(f'Ηλεκτρονική Διεύθυνση: {self.property_url}')
         logging.info(f'Αναγνωριστικό: {self.property_id}')
         logging.info(f'Υπνοδωμάτια: {self.bedroom}')
@@ -53,10 +60,10 @@ class Home:
         logging.info(f'Θέρμανση: {self.heating}')
         logging.info(f'Μεσίτης: {self.is_estate}')
         logging.info(f'Περιγραφή: {self.description}')
-        logging.info(f'Πετρέλαιο: {self.has_oil}')
+        logging.info(f'Πετρέλαιο: {self.has_oil}\n\n')
 
 
-    def set_house_info(self, soup_html, soup_lxml):
+    def set_house_info(self):
 
         try:
             if search(self.text, "Υπνοδωμάτια:"):
@@ -92,17 +99,19 @@ class Home:
             if search(self.text, "Προσανατολισμός:"):
                 self.compass = self.text[self.text.index("Προσανατολισμός:") + 2].text.strip()
 
-            self.title = soup_lxml.title.string.strip()
-            self.price = int(re.findall(r'\d+', soup_lxml.find(class_='price').h2.text)[0])
+            self.title = self.soup_lxml.title.string.strip()
+            self.price = int(re.findall(r'\d+', self.soup_lxml.find(class_='price').h2.text)[0])
             self.door = search(self.text, "Πόρτα ασφαλείας")
             self.canopy = search(self.text, "Τέντες")
 
             if self.description:
                 if (self.description.find('πετρέλαιο') != -1) or (self.description.find('πετρελαίου') != -1):
                     self.has_oil = True
+
             if search(self.text, "Μέσο θέρμανσης:"):
                 self.heating = self.text[self.text.index("Μέσο θέρμανσης:") + 2].text
-                if self.heating == "Πετρέλαιο" or self.heating == "πετρελαίου":
+
+                if self.heating == "Πετρέλαιο" or self.heating == "πετρελαίου" or self.heating.find('Πετρέλαιο') == 0:
                     self.has_oil = True
 
         except AttributeError as err:
@@ -118,8 +127,14 @@ class Home:
             pass
 
 
-    def set_text(self, soup_html):
-        parent = soup_html.find("body").find("ul")  # finding parent <ul> tag
+    def set_soup_html(self, soup_html):
+        self.soup_html = soup_html
+
+    def set_soup_lxml(self, soup_lxml):
+        self.soup_lxml = soup_lxml
+
+    def set_text(self):
+        parent = self.soup_html.find("body").find("ul")  # finding parent <ul> tag
         self.text = list(parent.descendants)  # finding all <li> tags
 
 
@@ -135,43 +150,86 @@ class Home:
         self.driver.maximize_window()
 
         delay = randint(1, 5)
-        logging.info(f'\nSleeping for {delay} seconds and get web page: {self.property_url} through chrome driver')
+        logging.info(f'\nSleeping for {delay} seconds and getting through chrome driver the web page: \n{self.property_url} ')
         sleep(delay)  # Attempt to avoid scrapping detection
         self.driver.get(self.property_url)
-
-        buttons = self.driver.find_elements_by_class_name('button-property')
         sleep(1)
 
-        actions = ActionChains(self.driver)
-        actions.click(buttons[2])
-        sleep(1)
+        try:
+            buttons = self.driver.find_elements_by_class_name('button-property')
+        except selenium.common.exceptions.TimeoutException as t_err:
+            buttons = []
+            logging.error("selenium error: {0}".format(t_err))        
+        except BaseException as err:
+            logging.error(f'Unexpected {err}, {type(err)}')
+        finally:
+            pass
 
-        actions.perform()
-        elem_list = self.driver.find_elements_by_tag_name('h2') # [7]
+
+        if len(buttons) >= 2:
+            
+            sleep(1)
+
+            actions = ActionChains(self.driver)
+            actions.click(buttons[2])
+            sleep(1)
+
+            actions.perform()
+            try:
+                elem_list = self.driver.find_elements_by_tag_name('h2') # [7]
+            except selenium.common.exceptions.TimeoutException as t_err:
+                buttons = []
+                logging.error("selenium error: {0}".format(t_err))        
+            except BaseException as err:
+                logging.error(f'Unexpected {err}, {type(err)}')
+            finally:
+                pass
+
 
         # TODO(SK): false possitives - improve
-        if len(elem_list) < 8:
-            self.is_estate = True
-            logging.debug(f'{self.property_id} len(elem_list) < 8')
-            logging.info(f'{self.property_url} has been rejected')
-
-        elif elem_list[7].text == 'Αγγελία ιδιώτη':
+        if self.title.find('Ιδιώτης') != -1:
             self.is_estate = False
-            logging.debug(f'{self.property_url} passes: not estate criterium')
+            #self.rejected = False
 
-        else:
-            self.is_estate = True
-            logging.debug(f'{self.property_id} estate')
-            logging.info(f'\n{self.property_id} has been rejected\n')
+        #elif self.soup_html:
+        elif len(self.soup_html.find_all("h2", {"class": "title"})) != 0:
+            title = self.soup_html.find_all("h2", {"class": "title"})[0].text
+            if (title == 'Αγγελία ιδιώτη'):
+                self.is_estate = False
+                #self.rejected = False
+                logging.info(f'{self.property_url} passes')
+                logging.info(f'{self.property_url} not estate (using soup_html)!')
+
+
+        if len(buttons) >= 2 and not self.is_estate == False:
+            
+            if len(elem_list) <= 8:
+                self.is_estate = True
+                logging.info(f'{self.property_id} len(elem_list) <= 8')
+                logging.info(f'elem_list = {[l.text for l in elem_list]}')
+                logging.info(f'{self.property_url} has been rejected')
+
+            elif elem_list[7].text == 'Αγγελία ιδιώτη':
+                self.is_estate = False
+                logging.info(f'{self.property_url} passes')
+                logging.info(f'{self.property_url} not estate (using soup_html)!')
+
+            else:
+                self.is_estate = True
+                logging.info(f'{self.property_id} estate')
+                logging.info(f'\n{self.property_id} has been rejected\n')
 
 
     def validate(self):
         self.check_estate()
 
-        if not self.rejected:
-            if self.is_estate:
-                logging.debug(f'This house has been published by a real estate. Rejecting...')
-                self.rejected = True
-            elif self.has_oil:
-                logging.debug(f'This house has oil. Rejecting...')
-                self.rejected = True
+        if self.is_estate:
+            logging.debug(f'This house has been published by a real estate. Rejecting...')
+            self.rejected = True
+        elif self.has_oil:
+            logging.info(f'This house has oil. Rejecting...')
+            self.rejected = True
+        else:
+            self.rejected = False
+            logging.info(f"This house hasn't oil and its not published from a real estate! Accepted!")
+    
